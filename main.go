@@ -18,6 +18,7 @@ func main() {
 	server.ListenAndServe()
 }
 
+// Copied (as directed) from ch1.4
 func middlewareCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
