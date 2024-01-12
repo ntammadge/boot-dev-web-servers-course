@@ -6,6 +6,7 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir(".")))
 	corsMux := middlewareCors(mux)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
 	server.ListenAndServe()
