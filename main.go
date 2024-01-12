@@ -6,7 +6,13 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(".")))
+
+	// Fileserver handler
+	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+
+	// Health check handler
+	mux.HandleFunc("/healthz", healthCheck)
+
 	corsMux := middlewareCors(mux)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
 	server.ListenAndServe()
@@ -23,4 +29,13 @@ func middlewareCors(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func healthCheck(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	if request.Method == "GET" {
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("OK"))
+		return
+	}
 }
