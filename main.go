@@ -15,10 +15,13 @@ func main() {
 	router.Handle("/app", fileServerHandler)
 	router.Handle("/app/*", fileServerHandler)
 
-	// Meta handlers
-	router.Get("/healthz", healthCheck)
-	router.Get("/metrics", apiConfig.apiMetrics)
-	router.HandleFunc("/reset", apiConfig.resetMetrics)
+	// API handlers
+	apiRouter := chi.NewRouter()
+	apiRouter.Get("/healthz", healthCheck)
+	apiRouter.Get("/metrics", apiConfig.apiMetrics)
+	apiRouter.HandleFunc("/reset", apiConfig.resetMetrics)
+
+	router.Mount("/api", apiRouter)
 
 	corsMux := middlewareCors(router)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
