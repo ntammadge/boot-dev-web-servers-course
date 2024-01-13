@@ -6,12 +6,19 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
+	apiConfig := apiConfig{fileserverHits: 0}
 
 	// Fileserver handler
-	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	mux.Handle(
+		"/app/",
+		http.StripPrefix(
+			"/app",
+			apiConfig.middlewareIncrementMetrics(http.FileServer(http.Dir(".")))))
 
-	// Health check handler
+	// Meta handlers
 	mux.HandleFunc("/healthz", healthCheck)
+	mux.HandleFunc("/metrics", apiConfig.apiMetrics)
+	mux.HandleFunc("/reset", apiConfig.resetMetrics)
 
 	corsMux := middlewareCors(mux)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
