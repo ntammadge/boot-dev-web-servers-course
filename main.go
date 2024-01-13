@@ -2,25 +2,25 @@ package main
 
 import (
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	router := chi.NewRouter()
 	apiConfig := apiConfig{fileserverHits: 0}
 
 	// Fileserver handler
-	mux.Handle(
-		"/app/",
-		http.StripPrefix(
-			"/app",
-			apiConfig.middlewareIncrementMetrics(http.FileServer(http.Dir(".")))))
+	fileServerHandler := apiConfig.middlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	router.Handle("/app", fileServerHandler)
+	router.Handle("/app/*", fileServerHandler)
 
 	// Meta handlers
-	mux.HandleFunc("/healthz", healthCheck)
-	mux.HandleFunc("/metrics", apiConfig.apiMetrics)
-	mux.HandleFunc("/reset", apiConfig.resetMetrics)
+	router.Get("/healthz", healthCheck)
+	router.Get("/metrics", apiConfig.apiMetrics)
+	router.HandleFunc("/reset", apiConfig.resetMetrics)
 
-	corsMux := middlewareCors(mux)
+	corsMux := middlewareCors(router)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
 	server.ListenAndServe()
 }
