@@ -23,6 +23,12 @@ func main() {
 
 	router.Mount("/api", apiRouter)
 
+	// Admin handlers
+	adminRouter := chi.NewRouter()
+	adminRouter.Get("/metrics", apiConfig.adminApiMetrics)
+
+	router.Mount("/admin", adminRouter)
+
 	corsMux := middlewareCors(router)
 	server := http.Server{Handler: corsMux, Addr: "localhost:8080"}
 	server.ListenAndServe()

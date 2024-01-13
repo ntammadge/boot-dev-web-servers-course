@@ -25,6 +25,21 @@ func (config *apiConfig) apiMetrics(writer http.ResponseWriter, request *http.Re
 	}
 }
 
+func (config *apiConfig) adminApiMetrics(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "text/html")
+	writer.WriteHeader(http.StatusOK)
+	// There has to be a better way of doing this
+	writer.Write([]byte(
+		fmt.Sprintf("<html>"+
+			"<body>"+
+			"<h1>Welcome, Chirpy Admin</h1>"+
+			"<p>Chirpy has been visited %d times!</p>"+
+			"</body>"+
+
+			"</html>",
+			config.fileserverHits)))
+}
+
 func (config *apiConfig) resetMetrics(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
