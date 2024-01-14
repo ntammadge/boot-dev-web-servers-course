@@ -5,10 +5,17 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
+	db             database.DB
+}
+
+func NewAPIConfig() apiConfig {
+	return apiConfig{fileserverHits: 0, db: database.NewDB("./database.json")}
 }
 
 func (config *apiConfig) middlewareIncrementMetrics(handler http.Handler) http.Handler {
@@ -48,35 +55,43 @@ func (config *apiConfig) resetMetrics(writer http.ResponseWriter, request *http.
 	config.fileserverHits = 0
 }
 
-func postChirp(writer http.ResponseWriter, request *http.Request) {
-	type incommingChirp struct {
-		Body string `json:"body"`
-	}
-	type validChirp struct {
-		Cleaned_Body string `json:"cleaned_body"`
-	}
-
+func (config *apiConfig) createChirp(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(request.Body)
-	chirp := incommingChirp{}
-	err := decoder.Decode(&chirp)
+	incommingChirp := database.Chirp{}
+	err := decoder.Decode(&incommingChirp)
 
 	// Check failure conditions
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if len(chirp.Body) > 140 {
+	if len(incommingChirp.Body) > 140 {
 		respondWithError(writer, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
 	// Valid Chirp
-	cleaned_body := cleanChripBody(chirp.Body)
-	writer.WriteHeader(http.StatusOK)
-	data, _ := json.Marshal(validChirp{Cleaned_Body: cleaned_body})
-	writer.Write(data)
+	body := cleanChirpBody(incommingChirp.Body)
+	chirp, err := config.db.CreateChirp(body)
+
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating Chirp: %v", err))
+	}
+	respondWithSuccess(writer, http.StatusCreated, chirp)
+}
+
+// Gets all Chirps
+func (config *apiConfig) getChirps(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	chirps, err := config.db.GetChirps()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error getting Chirps: %v", err))
+		return
+	}
+	respondWithSuccess(writer, http.StatusOK, chirps)
 }
 
 func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {
@@ -89,8 +104,18 @@ func respondWithError(writer http.ResponseWriter, statusCode int, errorText stri
 	writer.Write(errorData)
 }
 
-func cleanChripBody(original string) string {
-	// Needs to be reimplemented as a trie for large word counts
+func respondWithSuccess(writer http.ResponseWriter, statusCode int, payload interface{}) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating payload: %v", err))
+		return
+	}
+	writer.WriteHeader(statusCode)
+	writer.Write(data)
+}
+
+func cleanChirpBody(original string) string {
+	// Needs to be reimplemented as a trie for large word counts and where words have overlapping leading substrings
 	profaneWords := map[string]struct{}{"kerfuffle": {}, "sharbert": {}, "fornax": {}}
 
 	originalWords := strings.Split(original, " ")

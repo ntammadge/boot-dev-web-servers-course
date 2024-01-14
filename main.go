@@ -7,8 +7,9 @@ import (
 )
 
 func main() {
+
 	router := chi.NewRouter()
-	apiConfig := apiConfig{fileserverHits: 0}
+	apiConfig := NewAPIConfig()
 
 	// Fileserver handler
 	fileServerHandler := apiConfig.middlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
@@ -20,7 +21,8 @@ func main() {
 	apiRouter.Get("/healthz", healthCheck)
 	apiRouter.Get("/metrics", apiConfig.apiMetrics)
 	apiRouter.HandleFunc("/reset", apiConfig.resetMetrics)
-	apiRouter.Post("/validate_chirp", postChirp)
+	apiRouter.Post("/chirps", apiConfig.createChirp)
+	apiRouter.Get("/chirps", apiConfig.getChirps)
 
 	router.Mount("/api", apiRouter)
 

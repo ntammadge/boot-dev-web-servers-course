@@ -20,5 +20,6 @@
 # Go workspace file
 go.work
 
-# VSCode files
+# Local files
 .vscode/
+*database.json
