@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type apiConfig struct {
@@ -51,11 +52,8 @@ func postChirp(writer http.ResponseWriter, request *http.Request) {
 	type incommingChirp struct {
 		Body string `json:"body"`
 	}
-	type chirpError struct {
-		Error string `json:"error"`
-	}
 	type validChirp struct {
-		Valid bool `json:"valid"`
+		Cleaned_Body string `json:"cleaned_body"`
 	}
 
 	writer.Header().Set("Content-Type", "application/json")
@@ -66,20 +64,44 @@ func postChirp(writer http.ResponseWriter, request *http.Request) {
 
 	// Check failure conditions
 	if err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
-		data, _ := json.Marshal(chirpError{Error: err.Error()})
-		writer.Write(data)
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if len(chirp.Body) > 140 {
-		writer.WriteHeader(http.StatusBadRequest)
-		data, _ := json.Marshal(chirpError{Error: "Chirp is too long"})
-		writer.Write(data)
+		respondWithError(writer, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 
 	// Valid Chirp
+	cleaned_body := cleanChripBody(chirp.Body)
 	writer.WriteHeader(http.StatusOK)
-	data, _ := json.Marshal(validChirp{Valid: true})
+	data, _ := json.Marshal(validChirp{Cleaned_Body: cleaned_body})
 	writer.Write(data)
+}
+
+func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {
+	type chirpError struct {
+		Error string `json:"error"`
+	}
+
+	errorData, _ := json.Marshal(chirpError{Error: errorText})
+	writer.WriteHeader(statusCode)
+	writer.Write(errorData)
+}
+
+func cleanChripBody(original string) string {
+	// Needs to be reimplemented as a trie for large word counts
+	profaneWords := map[string]struct{}{"kerfuffle": {}, "sharbert": {}, "fornax": {}}
+
+	originalWords := strings.Split(original, " ")
+	newWords := []string{}
+
+	for _, word := range originalWords {
+		if _, found := profaneWords[strings.ToLower(word)]; found {
+			newWords = append(newWords, "****")
+		} else {
+			newWords = append(newWords, word)
+		}
+	}
+	return strings.Join(newWords, " ")
 }
