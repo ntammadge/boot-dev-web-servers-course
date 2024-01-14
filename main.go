@@ -20,6 +20,7 @@ func main() {
 	apiRouter.Get("/healthz", healthCheck)
 	apiRouter.Get("/metrics", apiConfig.apiMetrics)
 	apiRouter.HandleFunc("/reset", apiConfig.resetMetrics)
+	apiRouter.Post("/validate_chirp", postChirp)
 
 	router.Mount("/api", apiRouter)
 
