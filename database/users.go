@@ -2,6 +2,12 @@
 
 package database
 
+import "errors"
+
+var (
+	ErrEmailInUse = errors.New("that email is already in use")
+)
+
 type User struct {
 	Id    int    `json:"id"`
 	Email string `json:"email"`
@@ -15,12 +21,16 @@ func (db *DB) CreateUser(email string) (User, error) {
 	}
 
 	if dbStructure.Users == nil {
-		dbStructure.Users = map[int]User{}
+		dbStructure.Users = map[string]User{}
+	}
+
+	if _, found := dbStructure.Users[email]; found {
+		return User{}, ErrEmailInUse
 	}
 
 	userId := len(dbStructure.Users) + 1
 	user := User{Id: userId, Email: email}
-	dbStructure.Users[userId] = user
+	dbStructure.Users[user.Email] = user
 
 	err = db.writeDB(dbStructure)
 	if err != nil {
