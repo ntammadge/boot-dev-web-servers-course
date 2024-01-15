@@ -23,6 +23,7 @@ func main() {
 	apiRouter.HandleFunc("/reset", apiConfig.resetMetrics)
 	apiRouter.Post("/chirps", apiConfig.createChirp)
 	apiRouter.Get("/chirps", apiConfig.getChirps)
+	apiRouter.Get("/chirps/{chirpId}", apiConfig.getChirp)
 
 	router.Mount("/api", apiRouter)
 

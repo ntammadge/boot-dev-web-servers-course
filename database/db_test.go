@@ -213,6 +213,44 @@ func TestGetChirps(t *testing.T) {
 	}
 }
 
+func TestGetChirp(t *testing.T) {
+	testDb := NewDB("./testdatabase.json")
+
+	err := cleanupDbFile(testDb.path)
+	if err != nil {
+		t.Fatalf("Error cleaning up database file: %v", err)
+	}
+
+	err = testDb.ensureDB()
+	if err != nil {
+		t.Fatalf("Error creating database file: %v", err)
+	}
+
+	testDbStructure := DBStructure{Chirps: map[int]Chirp{
+		1: {Id: 1, Body: "First Chirp"},
+		2: {Id: 2, Body: "Second Chirp"},
+		3: {Id: 3, Body: "ANOTHER CHIRP"},
+	}}
+
+	err = testDb.writeDB(testDbStructure)
+	if err != nil {
+		t.Fatalf("Error creating database data: %v", err)
+	}
+
+	targetChirpId := 3
+
+	chirp, found, err := testDb.GetChirp(targetChirpId)
+	if err != nil {
+		t.Fatalf("Error getting Chirp: %v", err)
+	}
+	if !found {
+		t.Fatal("Chirp not found")
+	}
+	if chirp.Id != targetChirpId {
+		t.Fatalf("Expected Chirp '%v'. Actual Chirp '%v'", targetChirpId, chirp.Id)
+	}
+}
+
 // Cleans up an existing test database file if it exists
 func cleanupDbFile(path string) error {
 	_, err := os.Stat(path)

@@ -86,6 +86,23 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	return chirp, nil
 }
 
+// Gets a Chirp by its id, if it exists
+func (db *DB) GetChirp(id int) (chirp Chirp, found bool, err error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return Chirp{}, false, err
+	}
+
+	if dbStructure.Chirps == nil || len(dbStructure.Chirps) == 0 {
+		return Chirp{}, false, nil
+	}
+	chirp, found = dbStructure.Chirps[id]
+	if !found {
+		return Chirp{}, false, nil
+	}
+	return chirp, true, nil
+}
+
 // Gets all of the existing Chirps
 func (db *DB) GetChirps() ([]Chirp, error) {
 	dbStructure, err := db.loadDB()

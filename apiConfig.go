@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
@@ -80,6 +82,27 @@ func (config *apiConfig) createChirp(writer http.ResponseWriter, request *http.R
 		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating Chirp: %v", err))
 	}
 	respondWithSuccess(writer, http.StatusCreated, chirp)
+}
+
+// Get a single Chirp by id
+func (config *apiConfig) getChirp(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+	idStr := chi.URLParam(request, "chirpId")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		respondWithError(writer, http.StatusBadRequest, fmt.Sprintf("Error parsing id: %v", err))
+		return
+	}
+	chirp, found, err := config.db.GetChirp(id)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error getting Chirps: %v", err))
+		return
+	}
+	if !found {
+		respondWithError(writer, http.StatusNotFound, fmt.Sprintf("Chirp with id '%v' not found", id))
+		return
+	}
+	respondWithSuccess(writer, http.StatusOK, chirp)
 }
 
 // Gets all Chirps
