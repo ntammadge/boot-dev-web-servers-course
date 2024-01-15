@@ -74,17 +74,17 @@ func (config *apiConfig) createChirp(writer http.ResponseWriter, request *http.R
 		return
 	}
 
-	// Valid Chirp
+	// Valid chirp
 	body := cleanChirpBody(incommingChirp.Body)
 	chirp, err := config.db.CreateChirp(body)
 
 	if err != nil {
-		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating Chirp: %v", err))
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating chirp: %v", err))
 	}
 	respondWithSuccess(writer, http.StatusCreated, chirp)
 }
 
-// Get a single Chirp by id
+// Get a single chirp by id
 func (config *apiConfig) getChirp(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	idStr := chi.URLParam(request, "chirpId")
@@ -99,7 +99,7 @@ func (config *apiConfig) getChirp(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	if !found {
-		respondWithError(writer, http.StatusNotFound, fmt.Sprintf("Chirp with id '%v' not found", id))
+		respondWithError(writer, http.StatusNotFound, fmt.Sprintf("chirp with id '%v' not found", id))
 		return
 	}
 	respondWithSuccess(writer, http.StatusOK, chirp)

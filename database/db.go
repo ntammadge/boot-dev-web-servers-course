@@ -64,7 +64,7 @@ func (db *DB) loadDB() (DBStructure, error) {
 	return dbStructure, nil
 }
 
-// Creates a new Chirp and saves it to the database
+// Creates a new chirp and saves it to the database
 func (db *DB) CreateChirp(body string) (Chirp, error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
@@ -86,7 +86,7 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	return chirp, nil
 }
 
-// Gets a Chirp by its id, if it exists
+// Gets a chirp by its id, if it exists
 func (db *DB) GetChirp(id int) (chirp Chirp, found bool, err error) {
 	dbStructure, err := db.loadDB()
 	if err != nil {
