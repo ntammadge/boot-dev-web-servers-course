@@ -1,15 +1,26 @@
 package main
 
 import (
+	"flag"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 )
 
 func main() {
 
+	debug := flag.Bool("debug", false, "Enable debug mode")
+	flag.Parse()
+
+	databasePath := "./database.json"
+
+	if _, err := os.Stat(databasePath); err == nil && *debug {
+		os.Remove(databasePath)
+	}
+
 	router := chi.NewRouter()
-	apiConfig := NewAPIConfig()
+	apiConfig := NewAPIConfig(databasePath)
 
 	// Fileserver handler
 	fileServerHandler := apiConfig.middlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))

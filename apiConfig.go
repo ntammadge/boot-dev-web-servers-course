@@ -16,8 +16,8 @@ type apiConfig struct {
 	db             database.DB
 }
 
-func NewAPIConfig() apiConfig {
-	return apiConfig{fileserverHits: 0, db: database.NewDB("./database.json")}
+func NewAPIConfig(dbPath string) apiConfig {
+	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath)}
 }
 
 func (config *apiConfig) middlewareIncrementMetrics(handler http.Handler) http.Handler {
