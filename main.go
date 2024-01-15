@@ -24,6 +24,7 @@ func main() {
 	apiRouter.Post("/chirps", apiConfig.createChirp)
 	apiRouter.Get("/chirps", apiConfig.getChirps)
 	apiRouter.Get("/chirps/{chirpId}", apiConfig.getChirp)
+	apiRouter.Post("/users", apiConfig.createUser)
 
 	router.Mount("/api", apiRouter)
 

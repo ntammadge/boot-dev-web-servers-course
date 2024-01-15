@@ -117,6 +117,26 @@ func (config *apiConfig) getChirps(writer http.ResponseWriter, request *http.Req
 	respondWithSuccess(writer, http.StatusOK, chirps)
 }
 
+func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	decoder := json.NewDecoder(request.Body)
+	incommingUser := database.User{}
+	err := decoder.Decode(&incommingUser)
+
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	user, err := config.db.CreateUser(incommingUser.Email)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating user: %v", err))
+		return
+	}
+	respondWithSuccess(writer, http.StatusCreated, user)
+}
+
 func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {
 	type chirpError struct {
 		Error string `json:"error"`
