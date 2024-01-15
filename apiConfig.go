@@ -117,11 +117,16 @@ func (config *apiConfig) getChirps(writer http.ResponseWriter, request *http.Req
 	respondWithSuccess(writer, http.StatusOK, chirps)
 }
 
+// Create a new user
 func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Request) {
+	type userRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 	writer.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(request.Body)
-	incommingUser := database.User{}
+	incommingUser := userRequest{}
 	err := decoder.Decode(&incommingUser)
 
 	if err != nil {
@@ -129,12 +134,37 @@ func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	user, err := config.db.CreateUser(incommingUser.Email)
+	// Should there be logic to change status code based on error? (ex. email already used vs JSON error)
+	user, err := config.db.CreateUser(incommingUser.Email, incommingUser.Password)
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating user: %v", err))
 		return
 	}
 	respondWithSuccess(writer, http.StatusCreated, user)
+}
+
+// Login a user via the request body
+func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request) {
+	type loginRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	writer.Header().Set("Content-Type", "application/json")
+
+	decoder := json.NewDecoder(request.Body)
+	login := loginRequest{}
+	err := decoder.Decode(&login)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	user, err := config.db.ValidateCredentials(login.Email, login.Password)
+	if err != nil {
+		respondWithError(writer, http.StatusUnauthorized, err.Error())
+		return
+	}
+	respondWithSuccess(writer, http.StatusOK, user)
 }
 
 func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {

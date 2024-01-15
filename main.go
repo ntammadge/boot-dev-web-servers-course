@@ -36,6 +36,7 @@ func main() {
 	apiRouter.Get("/chirps", apiConfig.getChirps)
 	apiRouter.Get("/chirps/{chirpId}", apiConfig.getChirp)
 	apiRouter.Post("/users", apiConfig.createUser)
+	apiRouter.Post("/login", apiConfig.login)
 
 	router.Mount("/api", apiRouter)
 
