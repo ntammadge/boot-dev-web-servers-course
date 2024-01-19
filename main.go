@@ -2,13 +2,19 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Failed to load environment variables")
+	}
 
 	debug := flag.Bool("debug", false, "Enable debug mode")
 	flag.Parse()
@@ -20,7 +26,7 @@ func main() {
 	}
 
 	router := chi.NewRouter()
-	apiConfig := NewAPIConfig(databasePath)
+	apiConfig := NewAPIConfig(databasePath, os.Getenv("JWT_SECRET"))
 
 	// Fileserver handler
 	fileServerHandler := apiConfig.middlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
@@ -36,6 +42,7 @@ func main() {
 	apiRouter.Get("/chirps", apiConfig.getChirps)
 	apiRouter.Get("/chirps/{chirpId}", apiConfig.getChirp)
 	apiRouter.Post("/users", apiConfig.createUser)
+	apiRouter.Put("/users", apiConfig.updateUser)
 	apiRouter.Post("/login", apiConfig.login)
 
 	router.Mount("/api", apiRouter)

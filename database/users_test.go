@@ -50,7 +50,7 @@ func TestCreateUserUpdatesDatabase(t *testing.T) {
 		t.Fatalf("Error reading database: %v", err)
 	}
 
-	dbUser, found := dbStructure.Users[createdUser.Email]
+	dbUser, found := dbStructure.getUserFromEmail(createdUser.Email)
 	if !found {
 		t.Fatal("Did not find new user in database")
 	}
@@ -105,5 +105,43 @@ func TestValidateCredentials(t *testing.T) {
 	_, err = testDb.ValidateCredentials(userEmail, userPassword)
 	if err != nil {
 		t.Fatalf("Error validating user credentials: %v", err)
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	targetUserId := 5
+	updatedUserEmail := "updated@example.com"
+	testDb := NewDB("./testdatabase.json")
+
+	err := cleanupDbFile(testDb.path)
+	if err != nil {
+		t.Fatalf("Error cleaning up database file: %v", err)
+	}
+
+	err = testDb.ensureDB()
+	if err != nil {
+		t.Fatalf("Error creating database file: %v", err)
+	}
+
+	testDb.writeDB(DBStructure{
+		Chirps: map[int]Chirp{},
+		Users: []internalUser{
+			{
+				User: User{
+					Email: "initial@example.com",
+					Id:    targetUserId,
+				},
+				Password: "", // Password not necessary for this test
+			},
+		},
+	})
+
+	updatedUser, err := testDb.UpdateUser(targetUserId, updatedUserEmail, "")
+	if err != nil {
+		t.Fatalf("Error updating user: %v", err)
+	}
+
+	if updatedUser.Id != targetUserId || updatedUser.Email != updatedUserEmail {
+		t.Fatal("User update did not update to the correct values")
 	}
 }

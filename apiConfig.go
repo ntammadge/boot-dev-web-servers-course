@@ -6,18 +6,21 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
 	db             database.DB
+	jwtSecret      string
 }
 
-func NewAPIConfig(dbPath string) apiConfig {
-	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath)}
+func NewAPIConfig(dbPath string, jwtSecret string) apiConfig {
+	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath), jwtSecret: jwtSecret}
 }
 
 func (config *apiConfig) middlewareIncrementMetrics(handler http.Handler) http.Handler {
@@ -146,8 +149,13 @@ func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Re
 // Login a user via the request body
 func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request) {
 	type loginRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
+	}
+	type loginResponse struct {
+		database.User
+		Token string `json:"token"`
 	}
 	writer.Header().Set("Content-Type", "application/json")
 
@@ -159,9 +167,83 @@ func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request
 		return
 	}
 
+	tokenExpirationTimeSeconds := 60 * 60 * 24 // Default time is 24 hours
+	if login.ExpiresInSeconds <= tokenExpirationTimeSeconds && login.ExpiresInSeconds > 0 {
+		tokenExpirationTimeSeconds = login.ExpiresInSeconds
+	}
+
 	user, err := config.db.ValidateCredentials(login.Email, login.Password)
 	if err != nil {
 		respondWithError(writer, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	token := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		jwt.RegisteredClaims{
+			Issuer:    "chirpy",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(tokenExpirationTimeSeconds)).UTC()),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			Subject:   strconv.Itoa(user.Id),
+		},
+	)
+
+	signedToken, err := token.SignedString([]byte(config.jwtSecret))
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithSuccess(writer, http.StatusOK, loginResponse{User: user, Token: signedToken})
+}
+
+// Updates the user with values specified from the request
+func (config *apiConfig) updateUser(writer http.ResponseWriter, request *http.Request) {
+	type claims struct {
+		jwt.RegisteredClaims
+	}
+	type requestBody struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	writer.Header().Set("Content-Type", "application/json")
+
+	auth := request.Header.Get("Authorization")
+	if auth == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid authorization")
+		return
+	}
+	authToken := strings.TrimPrefix(auth, "Bearer ")
+
+	jwtToken, err := jwt.ParseWithClaims(authToken, &claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(config.jwtSecret), nil
+	})
+	if err != nil {
+		respondWithError(writer, http.StatusUnauthorized, err.Error())
+		return
+	}
+	strId, err := jwtToken.Claims.GetSubject()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+	userId, err := strconv.Atoi(strId)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	decoder := json.NewDecoder(request.Body)
+	body := requestBody{}
+	err = decoder.Decode(&body)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	user, err := config.db.UpdateUser(userId, body.Email, body.Password)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
 		return
 	}
 	respondWithSuccess(writer, http.StatusOK, user)

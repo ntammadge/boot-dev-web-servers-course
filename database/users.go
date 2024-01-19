@@ -23,6 +23,14 @@ type internalUser struct {
 	Password string `json:"password"`
 }
 
+func (dbStructure *DBStructure) getUserFromEmail(email string) (intUsr *internalUser, found bool) {
+	intUsr, found = dbStructure.getUser(func(intUsr internalUser) bool {
+		return intUsr.Email == email
+	})
+
+	return intUsr, found
+}
+
 // Creates a user with the specified email and an incremented id
 func (db *DB) CreateUser(email string, password string) (User, error) {
 	dbStructure, err := db.loadDB()
@@ -31,10 +39,11 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	}
 
 	if dbStructure.Users == nil {
-		dbStructure.Users = map[string]internalUser{}
+		dbStructure.Users = []internalUser{}
 	}
 
-	if _, found := dbStructure.Users[email]; found {
+	_, found := dbStructure.getUserFromEmail(email)
+	if found {
 		return User{}, ErrEmailInUse
 	}
 
@@ -43,19 +52,19 @@ func (db *DB) CreateUser(email string, password string) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
-	intrnlUser := internalUser{
+	intUsr := internalUser{
 		User: User{
 			Id:    userId,
 			Email: email},
 		Password: string(hashedPassword)}
-	dbStructure.Users[intrnlUser.Email] = intrnlUser
+	dbStructure.Users = append(dbStructure.Users, intUsr)
 
 	err = db.writeDB(dbStructure)
 	if err != nil {
 		return User{}, err
 	}
 
-	return intrnlUser.User, nil
+	return intUsr.User, nil
 }
 
 // Validates login credentials against a user's stored credentials in the database.
@@ -69,11 +78,7 @@ func (db *DB) ValidateCredentials(email string, password string) (User, error) {
 		return User{}, err
 	}
 
-	if dbStructure.Users == nil {
-		return User{}, ErrUserNotFound
-	}
-
-	intrnlUser, found := dbStructure.Users[email]
+	intrnlUser, found := dbStructure.getUserFromEmail(email)
 	if !found {
 		return User{}, ErrUserNotFound
 	}
@@ -84,4 +89,55 @@ func (db *DB) ValidateCredentials(email string, password string) (User, error) {
 	}
 
 	return intrnlUser.User, nil
+}
+
+// Updates a user entry in the database based on provided values for the email and password.
+//
+//	Empty values will not update the corresponding field in the database.
+//	Update should be authorized prior to calling this method
+func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
+	// TODO: Reconsider how updates are performed.
+	// How do updates happen when more fields are present? Keep each field update separate or execute all at once?
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	intUsr, found := dbStructure.getUser(func(intUsr internalUser) bool {
+		return intUsr.Id == id
+	})
+	if !found {
+		return User{}, ErrUserNotFound
+	}
+
+	if email != "" {
+		intUsr.Email = email
+	}
+	if password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return User{}, err
+		}
+		intUsr.Password = string(hashedPassword)
+	}
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, err
+	}
+	return intUsr.User, nil
+}
+
+// Gets a user via a supplied selector function. The selector function defines which user field to select on
+func (dbStructure *DBStructure) getUser(selector func(intUsr internalUser) bool) (intUsr *internalUser, found bool) {
+	if dbStructure.Users == nil || len(dbStructure.Users) == 0 {
+		return &internalUser{}, false
+	}
+
+	for i := 0; i < len(dbStructure.Users); i++ {
+		if selector(dbStructure.Users[i]) {
+			return &dbStructure.Users[i], true
+		}
+	}
+	return &internalUser{}, false
 }
