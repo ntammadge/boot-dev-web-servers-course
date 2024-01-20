@@ -44,6 +44,8 @@ func main() {
 	apiRouter.Post("/users", apiConfig.createUser)
 	apiRouter.Put("/users", apiConfig.updateUser)
 	apiRouter.Post("/login", apiConfig.login)
+	apiRouter.Post("/refresh", apiConfig.refreshAuth)
+	apiRouter.Post("/revoke", apiConfig.revokeAuth)
 
 	router.Mount("/api", apiRouter)
 

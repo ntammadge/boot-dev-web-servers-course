@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"time"
 )
 
 type DB struct {
@@ -15,8 +16,9 @@ type DB struct {
 }
 
 type DBStructure struct {
-	Chirps map[int]Chirp  `json:"chirps"`
-	Users  []internalUser `json:"users"`
+	Chirps            map[int]Chirp        `json:"chirps"`
+	Users             []internalUser       `json:"users"`
+	RevokedUserTokens map[string]time.Time `json:"revoked_user_tokens"`
 }
 
 func NewDB(path string) DB {

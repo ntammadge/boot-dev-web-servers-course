@@ -146,17 +146,25 @@ func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Re
 	respondWithSuccess(writer, http.StatusCreated, user)
 }
 
+var (
+	accessTokenIssuer          = "chirpy-access"
+	accessTokenTimeoutSeconds  = 60 * 60 // 1hr
+	refreshTokenIssuer         = "chirpy-refresh"
+	refreshTokenTimeoutSeconds = 60 * 60 * 24 * 60 // 60 days
+)
+
 // Login a user via the request body
 func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request) {
 	type loginRequest struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type loginResponse struct {
 		database.User
-		Token string `json:"token"`
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
+
 	writer.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(request.Body)
@@ -167,34 +175,24 @@ func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request
 		return
 	}
 
-	tokenExpirationTimeSeconds := 60 * 60 * 24 // Default time is 24 hours
-	if login.ExpiresInSeconds <= tokenExpirationTimeSeconds && login.ExpiresInSeconds > 0 {
-		tokenExpirationTimeSeconds = login.ExpiresInSeconds
-	}
-
 	user, err := config.db.ValidateCredentials(login.Email, login.Password)
 	if err != nil {
 		respondWithError(writer, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	token := jwt.NewWithClaims(
-		jwt.SigningMethodHS256,
-		jwt.RegisteredClaims{
-			Issuer:    "chirpy",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(tokenExpirationTimeSeconds)).UTC()),
-			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-			Subject:   strconv.Itoa(user.Id),
-		},
-	)
-
-	signedToken, err := token.SignedString([]byte(config.jwtSecret))
+	accessToken, err := config.createSignedJWT(accessTokenIssuer, accessTokenTimeoutSeconds, user.Id)
 	if err != nil {
-		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating access token: %v", err))
+		return
+	}
+	refreshToken, err := config.createSignedJWT(refreshTokenIssuer, refreshTokenTimeoutSeconds, user.Id)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating refres token: %v", err))
 		return
 	}
 
-	respondWithSuccess(writer, http.StatusOK, loginResponse{User: user, Token: signedToken})
+	respondWithSuccess(writer, http.StatusOK, loginResponse{User: user, Token: accessToken, RefreshToken: refreshToken})
 }
 
 // Updates the user with values specified from the request
@@ -222,6 +220,15 @@ func (config *apiConfig) updateUser(writer http.ResponseWriter, request *http.Re
 		respondWithError(writer, http.StatusUnauthorized, err.Error())
 		return
 	}
+	issuer, err := jwtToken.Claims.GetIssuer()
+	if err != nil {
+		respondWithError(writer, http.StatusUnauthorized, fmt.Sprintf("Error parsing token type: %v", err))
+		return
+	}
+	if issuer != accessTokenIssuer {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid access token issuer")
+		return
+	}
 	strId, err := jwtToken.Claims.GetSubject()
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, err.Error())
@@ -247,6 +254,106 @@ func (config *apiConfig) updateUser(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	respondWithSuccess(writer, http.StatusOK, user)
+}
+
+func (config *apiConfig) refreshAuth(writer http.ResponseWriter, request *http.Request) {
+	type claims struct {
+		jwt.RegisteredClaims
+	}
+	type refreshResponse struct {
+		Token string `json:"token"`
+	}
+
+	auth := request.Header.Get("Authorization")
+	if auth == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Missing authorization")
+		return
+	}
+
+	authToken := strings.TrimPrefix(auth, "Bearer ")
+	jwtToken, err := jwt.ParseWithClaims(authToken, &claims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte(config.jwtSecret), nil
+	})
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if !jwtToken.Valid {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid token signature")
+		return
+	}
+	issuer, err := jwtToken.Claims.GetIssuer()
+	if err != nil {
+		respondWithError(writer, http.StatusUnauthorized, err.Error())
+		return
+	}
+	if issuer != refreshTokenIssuer {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid token issuer")
+		return
+	}
+	alreadyRevoked, err := config.db.IsTokenRevoked(authToken)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error checking if the token was already revoked %v", err))
+		return
+	}
+	if alreadyRevoked {
+		respondWithError(writer, http.StatusUnauthorized, "Token previously revoked")
+		return
+	}
+
+	strId, err := jwtToken.Claims.GetSubject()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+	userId, err := strconv.Atoi(strId)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+	newAccessToken, err := config.createSignedJWT(accessTokenIssuer, accessTokenTimeoutSeconds, userId)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating new access token: %v", err))
+		return
+	}
+	respondWithSuccess(writer, http.StatusOK, refreshResponse{newAccessToken})
+}
+
+func (config *apiConfig) revokeAuth(writer http.ResponseWriter, request *http.Request) {
+	type claims struct {
+		jwt.RegisteredClaims
+	}
+
+	auth := request.Header.Get("Authorization")
+	if auth == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Missing authorization")
+		return
+	}
+
+	authToken := strings.TrimPrefix(auth, "Bearer ")
+	jwtToken, err := jwt.ParseWithClaims(authToken, &claims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte(config.jwtSecret), nil
+	})
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+	issuer, err := jwtToken.Claims.GetIssuer()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+	}
+	if issuer != refreshTokenIssuer {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid token type")
+		return
+	}
+
+	err = config.db.RevokeToken(authToken)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithSuccess(writer, http.StatusOK, nil)
 }
 
 func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {
@@ -284,4 +391,23 @@ func cleanChirpBody(original string) string {
 		}
 	}
 	return strings.Join(newWords, " ")
+}
+
+// Defines the process for Chirpy JWT construction
+func (config *apiConfig) createSignedJWT(issuer string, timeoutSeconds int, userId int) (string, error) {
+	unsignedToken := jwt.NewWithClaims(
+		jwt.SigningMethodHS256,
+		jwt.RegisteredClaims{
+			Issuer:    issuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Second * time.Duration(timeoutSeconds)).UTC()),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			Subject:   strconv.Itoa(userId),
+		},
+	)
+	signedToken, err := unsignedToken.SignedString([]byte(config.jwtSecret))
+
+	if err != nil {
+		return "", err
+	}
+	return signedToken, nil
 }
