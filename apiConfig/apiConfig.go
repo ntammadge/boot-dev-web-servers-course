@@ -1,4 +1,4 @@
-package main
+package apiConfig
 
 import (
 	"encoding/json"
@@ -23,14 +23,14 @@ func NewAPIConfig(dbPath string, jwtSecret string) apiConfig {
 	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath), jwtSecret: jwtSecret}
 }
 
-func (config *apiConfig) middlewareIncrementMetrics(handler http.Handler) http.Handler {
+func (config *apiConfig) MiddlewareIncrementMetrics(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		config.fileserverHits++
 		handler.ServeHTTP(writer, request)
 	})
 }
 
-func (config *apiConfig) apiMetrics(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) ApiMetrics(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if request.Method == http.MethodGet {
 		writer.WriteHeader(http.StatusOK)
@@ -39,7 +39,7 @@ func (config *apiConfig) apiMetrics(writer http.ResponseWriter, request *http.Re
 	}
 }
 
-func (config *apiConfig) adminApiMetrics(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) AdminApiMetrics(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "text/html")
 	writer.WriteHeader(http.StatusOK)
 	// There has to be a better way of doing this
@@ -54,13 +54,13 @@ func (config *apiConfig) adminApiMetrics(writer http.ResponseWriter, request *ht
 			config.fileserverHits)))
 }
 
-func (config *apiConfig) resetMetrics(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) ResetMetrics(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	writer.WriteHeader(http.StatusOK)
 	config.fileserverHits = 0
 }
 
-func (config *apiConfig) createChirp(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) CreateChirp(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(request.Body)
@@ -88,7 +88,7 @@ func (config *apiConfig) createChirp(writer http.ResponseWriter, request *http.R
 }
 
 // Get a single chirp by id
-func (config *apiConfig) getChirp(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) GetChirp(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	idStr := chi.URLParam(request, "chirpId")
 	id, err := strconv.Atoi(idStr)
@@ -109,7 +109,7 @@ func (config *apiConfig) getChirp(writer http.ResponseWriter, request *http.Requ
 }
 
 // Gets all Chirps
-func (config *apiConfig) getChirps(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) GetChirps(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
 	chirps, err := config.db.GetChirps()
@@ -121,7 +121,7 @@ func (config *apiConfig) getChirps(writer http.ResponseWriter, request *http.Req
 }
 
 // Create a new user
-func (config *apiConfig) createUser(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) CreateUser(writer http.ResponseWriter, request *http.Request) {
 	type userRequest struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -154,7 +154,7 @@ var (
 )
 
 // Login a user via the request body
-func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) Login(writer http.ResponseWriter, request *http.Request) {
 	type loginRequest struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -196,7 +196,7 @@ func (config *apiConfig) login(writer http.ResponseWriter, request *http.Request
 }
 
 // Updates the user with values specified from the request
-func (config *apiConfig) updateUser(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) UpdateUser(writer http.ResponseWriter, request *http.Request) {
 	type claims struct {
 		jwt.RegisteredClaims
 	}
@@ -256,7 +256,7 @@ func (config *apiConfig) updateUser(writer http.ResponseWriter, request *http.Re
 	respondWithSuccess(writer, http.StatusOK, user)
 }
 
-func (config *apiConfig) refreshAuth(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) RefreshAuth(writer http.ResponseWriter, request *http.Request) {
 	type claims struct {
 		jwt.RegisteredClaims
 	}
@@ -320,7 +320,7 @@ func (config *apiConfig) refreshAuth(writer http.ResponseWriter, request *http.R
 	respondWithSuccess(writer, http.StatusOK, refreshResponse{newAccessToken})
 }
 
-func (config *apiConfig) revokeAuth(writer http.ResponseWriter, request *http.Request) {
+func (config *apiConfig) RevokeAuth(writer http.ResponseWriter, request *http.Request) {
 	type claims struct {
 		jwt.RegisteredClaims
 	}

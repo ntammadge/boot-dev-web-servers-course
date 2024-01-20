@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
+	"github.com/trolfu/boot-dev-web-servers-course/apiConfig"
 )
 
 func main() {
@@ -26,32 +27,32 @@ func main() {
 	}
 
 	router := chi.NewRouter()
-	apiConfig := NewAPIConfig(databasePath, os.Getenv("JWT_SECRET"))
+	apiConfig := apiConfig.NewAPIConfig(databasePath, os.Getenv("JWT_SECRET"))
 
 	// Fileserver handler
-	fileServerHandler := apiConfig.middlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	fileServerHandler := apiConfig.MiddlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 	router.Handle("/app", fileServerHandler)
 	router.Handle("/app/*", fileServerHandler)
 
 	// API handlers
 	apiRouter := chi.NewRouter()
 	apiRouter.Get("/healthz", healthCheck)
-	apiRouter.Get("/metrics", apiConfig.apiMetrics)
-	apiRouter.HandleFunc("/reset", apiConfig.resetMetrics)
-	apiRouter.Post("/chirps", apiConfig.createChirp)
-	apiRouter.Get("/chirps", apiConfig.getChirps)
-	apiRouter.Get("/chirps/{chirpId}", apiConfig.getChirp)
-	apiRouter.Post("/users", apiConfig.createUser)
-	apiRouter.Put("/users", apiConfig.updateUser)
-	apiRouter.Post("/login", apiConfig.login)
-	apiRouter.Post("/refresh", apiConfig.refreshAuth)
-	apiRouter.Post("/revoke", apiConfig.revokeAuth)
+	apiRouter.Get("/metrics", apiConfig.ApiMetrics)
+	apiRouter.HandleFunc("/reset", apiConfig.ResetMetrics)
+	apiRouter.Post("/chirps", apiConfig.CreateChirp)
+	apiRouter.Get("/chirps", apiConfig.GetChirps)
+	apiRouter.Get("/chirps/{chirpId}", apiConfig.GetChirp)
+	apiRouter.Post("/users", apiConfig.CreateUser)
+	apiRouter.Put("/users", apiConfig.UpdateUser)
+	apiRouter.Post("/login", apiConfig.Login)
+	apiRouter.Post("/refresh", apiConfig.RefreshAuth)
+	apiRouter.Post("/revoke", apiConfig.RevokeAuth)
 
 	router.Mount("/api", apiRouter)
 
 	// Admin handlers
 	adminRouter := chi.NewRouter()
-	adminRouter.Get("/metrics", apiConfig.adminApiMetrics)
+	adminRouter.Get("/metrics", apiConfig.AdminApiMetrics)
 
 	router.Mount("/admin", adminRouter)
 
