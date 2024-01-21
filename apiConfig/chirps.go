@@ -8,16 +8,31 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
 // Creates a chirp from the request body
 func (config *apiConfig) CreateChirp(writer http.ResponseWriter, request *http.Request) {
+	type chirpRequest struct {
+		Body string `json:"body"`
+	}
+
+	auth := request.Header.Get("Authorization")
+	if auth == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Missing authorization")
+		return
+	}
+	authToken := strings.TrimPrefix(auth, "Bearer ")
+	parsedToken, err := config.parseJWT(authToken)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error parsing authorization token: %v", err))
+		return
+	}
+
 	writer.Header().Set("Content-Type", "application/json")
 
 	decoder := json.NewDecoder(request.Body)
-	incommingChirp := database.Chirp{}
-	err := decoder.Decode(&incommingChirp)
+	incommingChirp := chirpRequest{}
+	err = decoder.Decode(&incommingChirp)
 
 	// Check failure conditions
 	if err != nil {
@@ -31,7 +46,17 @@ func (config *apiConfig) CreateChirp(writer http.ResponseWriter, request *http.R
 
 	// Valid chirp
 	body := cleanChirpBody(incommingChirp.Body)
-	chirp, err := config.db.CreateChirp(body)
+	authorIdStr, err := parsedToken.Claims.GetSubject()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error getting user id: %v", err))
+		return
+	}
+	authorId, err := strconv.Atoi(authorIdStr)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error parsing user id: %v", err))
+		return
+	}
+	chirp, err := config.db.CreateChirp(body, authorId)
 
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error creating chirp: %v", err))

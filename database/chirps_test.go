@@ -16,11 +16,12 @@ func TestCreateChirp(t *testing.T) {
 	}
 
 	chirpBody := "Something really interesting"
-	chirp, err := testDb.CreateChirp(chirpBody)
+	chirpAuthorId := 5
+	chirp, err := testDb.CreateChirp(chirpBody, chirpAuthorId)
 	if err != nil {
 		t.Fatalf("Error creating chirp: %v", err)
 	}
-	if chirp.Body != chirpBody || chirp.Id != 1 {
+	if chirp.Body != chirpBody || chirp.Id != 1 || chirp.AuthorId != chirpAuthorId {
 		t.Fatal("Chirp created with incorrect data")
 	}
 }
@@ -38,11 +39,11 @@ func TestCreateChirpIncrementsChirpId(t *testing.T) {
 		t.Fatalf("Error creating database file: %v", err)
 	}
 
-	_, err = testDb.CreateChirp("First chirp")
+	_, err = testDb.CreateChirp("First chirp", 10)
 	if err != nil {
 		t.Fatalf("Error creating first chirp: %v", err)
 	}
-	testChirp, err := testDb.CreateChirp("Second chirp")
+	testChirp, err := testDb.CreateChirp("Second chirp", 50)
 	if err != nil {
 		t.Fatalf("Error creating second chirp: %v", err)
 	}
@@ -66,15 +67,15 @@ func TestCreateChirpUpdatesDatabase(t *testing.T) {
 	}
 
 	err = testDb.writeDB(DBStructure{Chirps: map[int]Chirp{
-		1: {Id: 1, Body: "First chirp"},
-		2: {Id: 2, Body: "Second chirp"},
-		3: {Id: 3, Body: "ANOTHER CHIRP"},
+		1: {Id: 1, Body: "First chirp", AuthorId: 5},
+		2: {Id: 2, Body: "Second chirp", AuthorId: 7},
+		3: {Id: 3, Body: "ANOTHER CHIRP", AuthorId: 3},
 	}})
 	if err != nil {
 		t.Fatalf("Error writing initial data to database: %v", err)
 	}
 
-	testChirp, err := testDb.CreateChirp("another ANOTHER chirp")
+	testChirp, err := testDb.CreateChirp("another ANOTHER chirp", 33)
 	if err != nil {
 		t.Fatalf("Error creating test chirp: %v", err)
 	}

@@ -61,9 +61,6 @@ func (config *apiConfig) Login(writer http.ResponseWriter, request *http.Request
 }
 
 func (config *apiConfig) RefreshAuth(writer http.ResponseWriter, request *http.Request) {
-	type claims struct {
-		jwt.RegisteredClaims
-	}
 	type refreshResponse struct {
 		Token string `json:"token"`
 	}
@@ -75,9 +72,7 @@ func (config *apiConfig) RefreshAuth(writer http.ResponseWriter, request *http.R
 	}
 
 	authToken := strings.TrimPrefix(auth, "Bearer ")
-	jwtToken, err := jwt.ParseWithClaims(authToken, &claims{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte(config.jwtSecret), nil
-	})
+	jwtToken, err := config.parseJWT(authToken)
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, err.Error())
 		return
@@ -125,10 +120,6 @@ func (config *apiConfig) RefreshAuth(writer http.ResponseWriter, request *http.R
 }
 
 func (config *apiConfig) RevokeAuth(writer http.ResponseWriter, request *http.Request) {
-	type claims struct {
-		jwt.RegisteredClaims
-	}
-
 	auth := request.Header.Get("Authorization")
 	if auth == "" {
 		respondWithError(writer, http.StatusUnauthorized, "Missing authorization")
@@ -136,9 +127,7 @@ func (config *apiConfig) RevokeAuth(writer http.ResponseWriter, request *http.Re
 	}
 
 	authToken := strings.TrimPrefix(auth, "Bearer ")
-	jwtToken, err := jwt.ParseWithClaims(authToken, &claims{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte(config.jwtSecret), nil
-	})
+	jwtToken, err := config.parseJWT(authToken)
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, err.Error())
 		return
@@ -158,4 +147,23 @@ func (config *apiConfig) RevokeAuth(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	respondWithSuccess(writer, http.StatusOK, nil)
+}
+
+// Parses the JWT acquired from the authorization header
+//
+//	`token` is the raw auth token in the http header
+//	Returns the parsed JWT with claims if successful. Returns an error if parsing the token errored
+func (config *apiConfig) parseJWT(token string) (*jwt.Token, error) {
+	type claims struct {
+		jwt.RegisteredClaims
+	}
+
+	parsedToken, err := jwt.ParseWithClaims(token, &claims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte(config.jwtSecret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedToken, nil
 }
