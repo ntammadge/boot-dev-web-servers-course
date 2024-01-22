@@ -97,6 +97,70 @@ func (config *apiConfig) GetChirps(writer http.ResponseWriter, request *http.Req
 	respondWithSuccess(writer, http.StatusOK, chirps)
 }
 
+func (config *apiConfig) DeleteChirp(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	chirpIdStr := chi.URLParam(request, "chirpId")
+	if chirpIdStr == "" {
+		respondWithError(writer, http.StatusBadRequest, "Unable to read chirp id from request")
+		return
+	}
+	chirpId, err := strconv.Atoi(chirpIdStr)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error parsing chirp id: %v", err))
+		return
+	}
+
+	chirp, found, err := config.db.GetChirp(chirpId)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error retrieving chirp from the database: %v", err))
+		return
+	}
+	if !found {
+		respondWithError(writer, http.StatusNotFound, "Chirp not found")
+		return
+	}
+
+	auth := request.Header.Get("Authorization")
+	if auth == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	authToken := strings.TrimPrefix(auth, "Bearer ")
+	jwt, err := config.parseJWT(authToken)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error parsing auth token: %v", err))
+		return
+	}
+	userIdStr, err := jwt.Claims.GetSubject()
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error reading token info: %v", err))
+		return
+	}
+	userId, err := strconv.Atoi(userIdStr)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error parsing user id from auth token: %v", err))
+		return
+	}
+
+	if chirp.AuthorId != userId {
+		respondWithError(writer, http.StatusForbidden, "Not allowed")
+		return
+	}
+
+	deleted, err := config.db.DeleteChirp(chirp.Id)
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error deleting chirp: %v", err))
+		return
+	}
+	if !deleted {
+		respondWithError(writer, http.StatusInternalServerError, "Failed to delete chirp")
+		return
+	}
+
+	respondWithSuccess(writer, http.StatusOK, "deleted")
+}
+
 func cleanChirpBody(original string) string {
 	// Needs to be reimplemented as a trie for large word counts and where words have overlapping leading substrings
 	profaneWords := map[string]struct{}{"kerfuffle": {}, "sharbert": {}, "fornax": {}}

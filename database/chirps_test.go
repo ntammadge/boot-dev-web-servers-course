@@ -167,3 +167,35 @@ func TestGetChirp(t *testing.T) {
 		t.Fatalf("Expected chirp '%v'. Actual chirp '%v'", targetChirpId, chirp.Id)
 	}
 }
+
+func TestDeleteChirp(t *testing.T) {
+	testDb := NewDB("./testdatabase.json")
+
+	err := cleanupDbFile(testDb.path)
+	if err != nil {
+		t.Fatalf("Error cleaning up database file: %v", err)
+	}
+
+	err = testDb.ensureDB()
+	if err != nil {
+		t.Fatalf("Error creating database file: %v", err)
+	}
+
+	targetChirpId := 3
+	testDbStructure := DBStructure{Chirps: map[int]Chirp{
+		targetChirpId: {Id: targetChirpId},
+	}}
+
+	err = testDb.writeDB(testDbStructure)
+	if err != nil {
+		t.Fatalf("Error writing database: %v", err)
+	}
+
+	deleted, err := testDb.DeleteChirp(targetChirpId)
+	if err != nil {
+		t.Fatalf("Error deleting chirp: %v", err)
+	}
+	if !deleted {
+		t.Fatal("Failed to delete the chirp")
+	}
+}

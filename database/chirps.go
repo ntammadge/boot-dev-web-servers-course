@@ -18,7 +18,7 @@ func (db *DB) CreateChirp(body string, authorId int) (Chirp, error) {
 		dbStructure.Chirps = map[int]Chirp{}
 	}
 
-	id := len(dbStructure.Chirps) + 1
+	id := len(dbStructure.Chirps) + 1 // TODO: Delete operation breaks this method of id determination. Need to update
 	chirp := Chirp{Id: id, Body: body, AuthorId: authorId}
 
 	dbStructure.Chirps[chirp.Id] = chirp
@@ -64,4 +64,31 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	}
 
 	return chirps, nil
+}
+
+// Deletes a chirp from the database.
+//
+//	`success` is true if the chirp was removed from the database, and false if the chirp was not found, the delete failed, or an error occurred.
+//	`err` is nil if the database was loaded and updated successfully, or has error information if those operations errored
+func (db *DB) DeleteChirp(chirpId int) (success bool, err error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return false, err
+	}
+
+	if dbStructure.Chirps == nil || len(dbStructure.Chirps) == 0 {
+		return false, nil
+	}
+
+	if _, found := dbStructure.Chirps[chirpId]; !found {
+		return false, nil
+	}
+
+	delete(dbStructure.Chirps, chirpId)
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

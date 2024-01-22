@@ -135,6 +135,7 @@ func (config *apiConfig) RevokeAuth(writer http.ResponseWriter, request *http.Re
 	issuer, err := jwtToken.Claims.GetIssuer()
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, err.Error())
+		return
 	}
 	if issuer != refreshTokenIssuer {
 		respondWithError(writer, http.StatusUnauthorized, "Invalid token type")
