@@ -66,6 +66,27 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	return chirps, nil
 }
 
+// Gets chirps with a specific user/author id
+func (db *DB) GetUserChirps(authorId int) ([]Chirp, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return nil, err
+	}
+
+	if dbStructure.Chirps == nil || len(dbStructure.Chirps) == 0 {
+		return []Chirp{}, nil
+	}
+
+	chirps := []Chirp{}
+	for _, chirp := range dbStructure.Chirps {
+		if chirp.AuthorId == authorId {
+			chirps = append(chirps, chirp)
+		}
+	}
+
+	return chirps, nil
+}
+
 // Deletes a chirp from the database.
 //
 //	`success` is true if the chirp was removed from the database, and false if the chirp was not found, the delete failed, or an error occurred.
@@ -92,3 +113,10 @@ func (db *DB) DeleteChirp(chirpId int) (success bool, err error) {
 	}
 	return true, nil
 }
+
+type Chirps []Chirp
+type ById struct{ Chirps }
+
+func (a Chirps) Len() int         { return len(a) }
+func (a Chirps) Swap(i, j int)    { a[i], a[j] = a[j], a[i] }
+func (a ById) Less(i, j int) bool { return a.Chirps[i].Id < a.Chirps[j].Id }

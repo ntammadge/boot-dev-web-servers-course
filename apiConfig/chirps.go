@@ -1,13 +1,16 @@
 package apiConfig
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
 // Creates a chirp from the request body
@@ -86,14 +89,29 @@ func (config *apiConfig) GetChirp(writer http.ResponseWriter, request *http.Requ
 }
 
 // Gets all Chirps
+//
+//	If an `author_id` is provided as a query parameter, the chirps are filtered to the provided author id
 func (config *apiConfig) GetChirps(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
-	chirps, err := config.db.GetChirps()
+	authorIdParam := request.URL.Query().Get("author_id")
+	authorId, err := strconv.Atoi(authorIdParam)
+	var chirps []database.Chirp
+
+	// Is there a cleaner way to do this?
+	if authorIdParam == "" || err != nil {
+		chirps, err = config.db.GetChirps()
+	} else {
+		chirps, err = config.db.GetUserChirps(authorId)
+	}
+
 	if err != nil {
 		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error getting Chirps: %v", err))
 		return
 	}
+	slices.SortFunc(chirps, func(a, b database.Chirp) int {
+		return cmp.Compare(a.Id, b.Id)
+	})
 	respondWithSuccess(writer, http.StatusOK, chirps)
 }
 
