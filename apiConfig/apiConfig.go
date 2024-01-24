@@ -14,11 +14,13 @@ import (
 type apiConfig struct {
 	fileserverHits int
 	db             database.DB
-	jwtSecret      string
+	// There has to be a more secure way of doing this
+	jwtSecret   string
+	polkaApiKey string
 }
 
-func NewAPIConfig(dbPath string, jwtSecret string) apiConfig {
-	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath), jwtSecret: jwtSecret}
+func NewAPIConfig(dbPath string, jwtSecret string, polkaApiKey string) apiConfig {
+	return apiConfig{fileserverHits: 0, db: database.NewDB(dbPath), jwtSecret: jwtSecret, polkaApiKey: polkaApiKey}
 }
 
 func respondWithError(writer http.ResponseWriter, statusCode int, errorText string) {

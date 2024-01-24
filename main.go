@@ -27,7 +27,7 @@ func main() {
 	}
 
 	router := chi.NewRouter()
-	apiConfig := apiConfig.NewAPIConfig(databasePath, os.Getenv("JWT_SECRET"))
+	apiConfig := apiConfig.NewAPIConfig(databasePath, os.Getenv("JWT_SECRET"), os.Getenv("POLKA_API_KEY"))
 
 	// Fileserver handler
 	fileServerHandler := apiConfig.MiddlewareIncrementMetrics(http.StripPrefix("/app", http.FileServer(http.Dir("."))))

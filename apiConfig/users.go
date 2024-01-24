@@ -98,12 +98,24 @@ func (config *apiConfig) UpdateUser(writer http.ResponseWriter, request *http.Re
 	respondWithSuccess(writer, http.StatusOK, user)
 }
 
+// Upgrades a user via Polka webhook interaction
 func (config *apiConfig) UpgradeUser(writer http.ResponseWriter, request *http.Request) {
 	type upgradeRequest struct {
 		Event string `json:"event"`
 		Data  struct {
 			UserId int `json:"user_id"`
 		} `json:"data"`
+	}
+
+	auth := request.Header.Get("Authorization")
+	apiKey := strings.TrimPrefix(auth, "ApiKey ")
+	if auth == "" || apiKey == "" {
+		respondWithError(writer, http.StatusUnauthorized, "Not authorized")
+		return
+	}
+	if apiKey != config.polkaApiKey {
+		respondWithError(writer, http.StatusUnauthorized, "Invalid API key")
+		return
 	}
 
 	decoder := json.NewDecoder(request.Body)
