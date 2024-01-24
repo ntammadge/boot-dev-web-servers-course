@@ -14,8 +14,9 @@ var (
 )
 
 type User struct {
-	Id    int    `json:"id"`
-	Email string `json:"email"`
+	Id          int    `json:"id"`
+	Email       string `json:"email"`
+	IsChirpyRed bool   `json:"is_chirpy_red" default:"false"`
 }
 
 type internalUser struct {
@@ -103,9 +104,7 @@ func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
 		return User{}, err
 	}
 
-	intUsr, found := dbStructure.getUser(func(intUsr internalUser) bool {
-		return intUsr.Id == id
-	})
+	intUsr, found := dbStructure.getUserFromId(id)
 	if !found {
 		return User{}, ErrUserNotFound
 	}
@@ -140,4 +139,35 @@ func (dbStructure *DBStructure) getUser(selector func(intUsr internalUser) bool)
 		}
 	}
 	return &internalUser{}, false
+}
+
+func (dbStructure *DBStructure) getUserFromId(id int) (intUsr *internalUser, found bool) {
+	intUsr, found = dbStructure.getUser(func(intUsr internalUser) bool {
+		return intUsr.Id == id
+	})
+
+	return intUsr, found
+}
+
+// Upgrades a specified user to Chirpy Red
+//
+//	Returns the upgraded user on success. Returns an error if the database read/writer failed
+func (db *DB) UpgradeUser(id int) (User, error) {
+	dbStructure, err := db.loadDB()
+	if err != nil {
+		return User{}, err
+	}
+
+	intUsr, found := dbStructure.getUserFromId(id)
+	if !found {
+		return User{}, ErrUserNotFound
+	}
+
+	intUsr.IsChirpyRed = true
+
+	err = db.writeDB(dbStructure)
+	if err != nil {
+		return User{}, err
+	}
+	return intUsr.User, nil
 }

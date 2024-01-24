@@ -145,3 +145,52 @@ func TestUpdateUser(t *testing.T) {
 		t.Fatal("User update did not update to the correct values")
 	}
 }
+
+func TestUpgradeUser(t *testing.T) {
+	targetUserId := 7
+	testDb := NewDB("./testdatabase.json")
+
+	err := cleanupDbFile(testDb.path)
+	if err != nil {
+		t.Fatalf("Error cleaning up database file: %v", err)
+	}
+
+	err = testDb.ensureDB()
+	if err != nil {
+		t.Fatalf("Error creating database file: %v", err)
+	}
+
+	testDb.writeDB(DBStructure{
+		Chirps: map[int]Chirp{},
+		Users: []internalUser{
+			{
+				User: User{
+					Email:       "initial@example.com",
+					Id:          targetUserId,
+					IsChirpyRed: false,
+				},
+				Password: "", // Password not necessary for this test
+			},
+		},
+	})
+
+	upgradedUser, err := testDb.UpgradeUser(targetUserId)
+	if err != nil {
+		t.Fatalf("Error upgrading user: %v", err)
+	}
+	if !upgradedUser.IsChirpyRed {
+		t.Fatal("User upgrade failed to upgrade user")
+	}
+
+	testDbStructure, err := testDb.loadDB()
+	if err != nil {
+		t.Fatalf("Error reading database after upgrade")
+	}
+	retrievedUser, found := testDbStructure.getUserFromId(targetUserId)
+	if !found {
+		t.Fatal("Failed to get user record from database")
+	}
+	if !retrievedUser.IsChirpyRed {
+		t.Fatal("Failed to update database record for user upgrade")
+	}
+}

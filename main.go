@@ -48,6 +48,7 @@ func main() {
 	apiRouter.Post("/login", apiConfig.Login)
 	apiRouter.Post("/refresh", apiConfig.RefreshAuth)
 	apiRouter.Post("/revoke", apiConfig.RevokeAuth)
+	apiRouter.Post("/polka/webhooks", apiConfig.UpgradeUser)
 
 	router.Mount("/api", apiRouter)
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/trolfu/boot-dev-web-servers-course/database"
 )
 
 // Create a new user
@@ -95,4 +96,38 @@ func (config *apiConfig) UpdateUser(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	respondWithSuccess(writer, http.StatusOK, user)
+}
+
+func (config *apiConfig) UpgradeUser(writer http.ResponseWriter, request *http.Request) {
+	type upgradeRequest struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserId int `json:"user_id"`
+		} `json:"data"`
+	}
+
+	decoder := json.NewDecoder(request.Body)
+	upReq := upgradeRequest{}
+	err := decoder.Decode(&upReq)
+	if err != nil {
+		respondWithError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if upReq.Event != "user.upgraded" {
+		respondWithSuccess(writer, http.StatusOK, struct{}{})
+		return
+	}
+
+	upgradedUser, err := config.db.UpgradeUser(upReq.Data.UserId)
+	if err == database.ErrUserNotFound {
+		respondWithError(writer, http.StatusNotFound, database.ErrUserNotFound.Error())
+		return
+	}
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error upgrading user: %v", err))
+		return
+	}
+
+	respondWithSuccess(writer, http.StatusOK, upgradedUser)
 }
