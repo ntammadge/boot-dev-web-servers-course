@@ -113,10 +113,3 @@ func (db *DB) DeleteChirp(chirpId int) (success bool, err error) {
 	}
 	return true, nil
 }
-
-type Chirps []Chirp
-type ById struct{ Chirps }
-
-func (a Chirps) Len() int         { return len(a) }
-func (a Chirps) Swap(i, j int)    { a[i], a[j] = a[j], a[i] }
-func (a ById) Less(i, j int) bool { return a.Chirps[i].Id < a.Chirps[j].Id }
