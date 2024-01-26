@@ -91,28 +91,60 @@ func (config *apiConfig) GetChirp(writer http.ResponseWriter, request *http.Requ
 // Gets all Chirps
 //
 //	If an `author_id` is provided as a query parameter, the chirps are filtered to the provided author id
+//	If a `sort` parameter is provided, the returned chirps will be sorted accordingly. `asc` for ascending order and `desc` for decending order. Default sort method is `asc`
 func (config *apiConfig) GetChirps(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
 	authorIdParam := request.URL.Query().Get("author_id")
-	authorId, err := strconv.Atoi(authorIdParam)
+	chirps, err := config.getChirps(authorIdParam)
+
+	if err != nil {
+		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error retrieving chirps: %v", err))
+		return
+	}
+
+	sortParam := request.URL.Query().Get("sort")
+	chirps = sortChirpsById(chirps, sortParam)
+
+	respondWithSuccess(writer, http.StatusOK, chirps)
+}
+
+// Gets chirps from the database. If the author id is provided, gets chirps from that specific user
+func (config *apiConfig) getChirps(authorId string) ([]database.Chirp, error) {
+	id, err := strconv.Atoi(authorId)
 	var chirps []database.Chirp
 
-	// Is there a cleaner way to do this?
-	if authorIdParam == "" || err != nil {
+	if authorId == "" || err != nil {
 		chirps, err = config.db.GetChirps()
 	} else {
-		chirps, err = config.db.GetUserChirps(authorId)
+		chirps, err = config.db.GetUserChirps(id)
 	}
 
 	if err != nil {
-		respondWithError(writer, http.StatusInternalServerError, fmt.Sprintf("Error getting Chirps: %v", err))
-		return
+		return nil, err
 	}
-	slices.SortFunc(chirps, func(a, b database.Chirp) int {
-		return cmp.Compare(a.Id, b.Id)
-	})
-	respondWithSuccess(writer, http.StatusOK, chirps)
+
+	return chirps, nil
+}
+
+// Sorts chirps by their id and the provided sort order. Sort order
+func sortChirpsById(chirps []database.Chirp, sortOrder string) []database.Chirp {
+	ascOrder := "asc"
+	descOrder := "desc"
+	if sortOrder != ascOrder && sortOrder != descOrder {
+		sortOrder = ascOrder
+	}
+
+	if sortOrder == ascOrder {
+		slices.SortFunc(chirps, func(a, b database.Chirp) int {
+			return cmp.Compare(a.Id, b.Id)
+		})
+	} else {
+		slices.SortFunc(chirps, func(a, b database.Chirp) int {
+			return cmp.Compare(b.Id, a.Id)
+		})
+	}
+	return chirps
 }
 
 func (config *apiConfig) DeleteChirp(writer http.ResponseWriter, request *http.Request) {
